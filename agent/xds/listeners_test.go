@@ -2,7 +2,17 @@ package xds
 
 import (
 	"bytes"
+	"path/filepath"
+	"sort"
+	"testing"
+	"text/template"
+	"time"
+
 	envoy_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+
+	testinf "github.com/mitchellh/go-testing-interface"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hashicorp/consul/agent/connect"
 	"github.com/hashicorp/consul/agent/consul/discoverychain"
 	"github.com/hashicorp/consul/agent/proxycfg"
@@ -10,13 +20,6 @@ import (
 	"github.com/hashicorp/consul/agent/xds/proxysupport"
 	"github.com/hashicorp/consul/sdk/testutil"
 	"github.com/hashicorp/consul/types"
-	testinf "github.com/mitchellh/go-testing-interface"
-	"github.com/stretchr/testify/require"
-	"path/filepath"
-	"sort"
-	"testing"
-	"text/template"
-	"time"
 )
 
 func TestListenersFromSnapshot(t *testing.T) {
@@ -33,6 +36,7 @@ func TestListenersFromSnapshot(t *testing.T) {
 		setup              func(snap *proxycfg.ConfigSnapshot)
 		overrideGoldenName string
 		serverSetup        func(*Server)
+		generatorSetup     func(*ResourceGenerator)
 	}{
 		{
 			name:   "defaults",
@@ -263,7 +267,7 @@ func TestListenersFromSnapshot(t *testing.T) {
 					Checks: true,
 				}
 			},
-			serverSetup: func(s *Server) {
+			generatorSetup: func(s *ResourceGenerator) {
 				s.CfgFetcher = configFetcherFunc(func() string {
 					return "192.0.2.1"
 				})
@@ -528,16 +532,13 @@ func TestListenersFromSnapshot(t *testing.T) {
 					}
 
 					// Need server just for logger dependency
-					s := Server{Logger: testutil.Logger(t)}
-					if tt.serverSetup != nil {
-						tt.serverSetup(&s)
+					g := newResourceGenerator(testutil.Logger(t), nil, nil)
+					g.ProxyFeatures = sf
+					if tt.generatorSetup != nil {
+						tt.generatorSetup(g)
 					}
 
-					cInfo := connectionInfo{
-						Token:         "my-token",
-						ProxyFeatures: sf,
-					}
-					listeners, err := s.listenersFromSnapshot(cInfo, snap)
+					listeners, err := g.listenersFromSnapshot(snap)
 					require.NoError(t, err)
 
 					// The order of listeners returned via LDS isn't relevant, so it's safe
