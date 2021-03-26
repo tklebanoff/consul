@@ -98,6 +98,7 @@ func (uc *UpstreamConfig) ConnectTimeout() time.Duration {
 	return 10000 * time.Millisecond
 }
 
+// markan START TOMORROW HERE; discover where this is applied
 // applyDefaults sets zero-valued params to a sane default.
 func (uc *UpstreamConfig) applyDefaults() {
 	if uc.DestinationType == "" {
@@ -106,7 +107,7 @@ func (uc *UpstreamConfig) applyDefaults() {
 	if uc.DestinationNamespace == "" {
 		uc.DestinationNamespace = "default"
 	}
-	if uc.LocalBindAddress == "" {
+	if uc.LocalBindAddress == "" && uc.LocalBindSocketPath == "" {
 		uc.LocalBindAddress = "127.0.0.1"
 	}
 }

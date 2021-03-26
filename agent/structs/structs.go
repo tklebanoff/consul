@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"net"
 	"reflect"
 	"regexp"
 	"sort"
@@ -1183,15 +1182,11 @@ func (s *NodeService) Validate() error {
 			}
 			upstreamKeys[uk] = struct{}{}
 
-			addr := u.LocalBindAddress
-			if addr == "" {
-				addr = "127.0.0.1"
-			}
-			addr = net.JoinHostPort(addr, fmt.Sprintf("%d", u.LocalBindPort))
+			addr := u.UpstreamAddressToString()
 
 			if _, ok := bindAddrs[addr]; ok {
 				result = multierror.Append(result, fmt.Errorf(
-					"upstreams cannot contain duplicates by local bind address and port; %q is specified twice", addr))
+					"upstreams cannot contain duplicates by local bind address and port or unix path; %q is specified twice", addr))
 				continue
 			}
 			bindAddrs[addr] = struct{}{}

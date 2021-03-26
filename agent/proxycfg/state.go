@@ -1596,6 +1596,7 @@ func (s *state) handleUpdateIngressGateway(u cache.UpdateEvent, snap *ConfigSnap
 	return nil
 }
 
+// TODO markan: revisit for UDS
 func makeUpstream(g *structs.GatewayService) structs.Upstream {
 	upstream := structs.Upstream{
 		DestinationName:      g.Service.Name,

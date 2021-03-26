@@ -87,6 +87,7 @@ func NewPublicListener(svc *connect.Service, cfg PublicListenerConfig,
 
 // NewUpstreamListener returns a Listener setup to listen locally for TCP
 // connections that are proxied to a discovered Connect service instance.
+// TODO markan: do I need a UDS listener option here?
 func NewUpstreamListener(svc *connect.Service, client *api.Client,
 	cfg UpstreamConfig, logger hclog.Logger) *Listener {
 	return newUpstreamListenerWithResolver(svc, cfg,
