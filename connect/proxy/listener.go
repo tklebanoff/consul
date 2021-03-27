@@ -24,6 +24,7 @@ const (
 // Listener is the implementation of a specific proxy listener. It has pluggable
 // Listen and Dial methods to suit public mTLS vs upstream semantics. It handles
 // the lifecycle of the listener and all connections opened through it
+//TODO markan FIXUP Listener, bindAddr and NewPublicListener chain
 type Listener struct {
 	// Service is the connect service instance to use.
 	Service *connect.Service

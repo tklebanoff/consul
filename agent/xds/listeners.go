@@ -544,6 +544,19 @@ func (s *Server) makeIngressGatewayListeners(address string, cfgSnap *proxycfg.C
 	return resources, nil
 }
 
+// makeListenerExt
+func makeListenerExt(name string, upstream *structs.Upstream, trafficDirection envoy_core_v3.TrafficDirection) *envoy_listener_v3.Listener {
+	if upstream.LocalBindPort == 0 && upstream.LocalBindSocketPath != "" {
+		return makePipeListener(name, upstream.LocalBindSocketPath, upstream.LocalBindSocketMode, trafficDirection)
+	}
+
+	address := "127.0.0.1"
+	if upstream.LocalBindAddress != "" {
+		address = upstream.LocalBindAddress
+	}
+	return makeListener(name, address, upstream.LocalBindPort, trafficDirection)
+}
+
 // makeListener returns a listener with name and bind details set. Filters must
 // be added before it's useful.
 //
@@ -559,6 +572,14 @@ func makeListener(name, addr string, port int, trafficDirection envoy_core_v3.Tr
 	return &envoy_listener_v3.Listener{
 		Name:             fmt.Sprintf("%s:%s:%d", name, addr, port),
 		Address:          makeAddress(addr, port),
+		TrafficDirection: trafficDirection,
+	}
+}
+
+func makePipeListener(name, path string, mode uint32, trafficDirection envoy_core_v3.TrafficDirection) *envoy_listener_v3.Listener {
+	return &envoy_listener_v3.Listener{
+		Name:             fmt.Sprintf("%s:%s", name, path),
+		Address:          makePipeAddress(path, mode),
 		TrafficDirection: trafficDirection,
 	}
 }

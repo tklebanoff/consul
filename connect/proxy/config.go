@@ -115,7 +115,14 @@ func (uc *UpstreamConfig) applyDefaults() {
 // String returns a string that uniquely identifies the Upstream. Used for
 // identifying the upstream in log output and map keys.
 func (uc *UpstreamConfig) String() string {
-	return fmt.Sprintf("%s:%d->%s:%s/%s", uc.LocalBindAddress, uc.LocalBindPort,
+	// TODO markan upfactor
+	addr := uc.LocalBindSocketPath
+	if addr == "" {
+		addr = fmt.Sprintf(
+			"%s:%d",
+			uc.LocalBindAddress, uc.LocalBindPort)
+	}
+	return fmt.Sprintf("%s->%s:%s/%s", addr,
 		uc.DestinationType, uc.DestinationNamespace, uc.DestinationName)
 }
 
