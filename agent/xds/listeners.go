@@ -102,11 +102,7 @@ func (s *Server) listenersFromSnapshotConnectProxy(cInfo connectionInfo, cfgSnap
 		}
 
 		// Generate the upstream listeners for when they are explicitly set with a local bind port
-		if outboundListener == nil || (upstreamCfg != nil && upstreamCfg.LocalBindPort != 0) {
-			address := "127.0.0.1"
-			if upstreamCfg.LocalBindAddress != "" {
-				address = upstreamCfg.LocalBindAddress
-			}
+		if outboundListener == nil || (upstreamCfg != nil && upstreamCfg.HasLocalPortOrSocket()) {
 
 			filterChain, err := s.makeUpstreamFilterChainForDiscoveryChain(
 				id,
@@ -121,7 +117,7 @@ func (s *Server) listenersFromSnapshotConnectProxy(cInfo connectionInfo, cfgSnap
 				return nil, err
 			}
 
-			upstreamListener := makeListener(id, address, upstreamCfg.LocalBindPort, envoy_core_v3.TrafficDirection_OUTBOUND)
+			upstreamListener := makeListenerExt(id, upstreamCfg, envoy_core_v3.TrafficDirection_OUTBOUND)
 			upstreamListener.FilterChains = []*envoy_listener_v3.FilterChain{
 				filterChain,
 			}
