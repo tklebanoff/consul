@@ -75,7 +75,7 @@ func (s *Server) listenersFromSnapshotConnectProxy(cInfo connectionInfo, cfgSnap
 	var outboundListener *envoy_listener_v3.Listener
 
 	if cfgSnap.Proxy.TransparentProxy {
-		outboundListener = makeListener(OutboundListenerName, "127.0.0.1", TProxyOutboundPort, envoy_core_v3.TrafficDirection_OUTBOUND)
+		outboundListener = makePortListener(OutboundListenerName, "127.0.0.1", TProxyOutboundPort, envoy_core_v3.TrafficDirection_OUTBOUND)
 		outboundListener.FilterChains = make([]*envoy_listener_v3.FilterChain, 0)
 		outboundListener.ListenerFilters = []*envoy_listener_v3.ListenerFilter{
 			{
@@ -499,7 +499,7 @@ func (s *Server) makeIngressGatewayListeners(address string, cfgSnap *proxycfg.C
 			resources = append(resources, upstreamListener)
 		} else {
 			// If multiple upstreams share this port, make a special listener for the protocol.
-			listener := makeListener(listenerKey.Protocol, address, listenerKey.Port, envoy_core_v3.TrafficDirection_OUTBOUND)
+			listener := makePortListener(listenerKey.Protocol, address, listenerKey.Port, envoy_core_v3.TrafficDirection_OUTBOUND)
 			opts := listenerFilterOpts{
 				useRDS:          true,
 				protocol:        listenerKey.Protocol,
@@ -535,7 +535,7 @@ func (s *Server) makeIngressGatewayListeners(address string, cfgSnap *proxycfg.C
 	return resources, nil
 }
 
-// makeListenerExt
+// makeListenerExt (TODO markan rename to makeListener)
 func makeListenerExt(name string, upstream *structs.Upstream, trafficDirection envoy_core_v3.TrafficDirection) *envoy_listener_v3.Listener {
 	if upstream.LocalBindPort == 0 && upstream.LocalBindSocketPath != "" {
 		return makePipeListener(name, upstream.LocalBindSocketPath, upstream.LocalBindSocketMode, trafficDirection)
@@ -545,7 +545,7 @@ func makeListenerExt(name string, upstream *structs.Upstream, trafficDirection e
 	if upstream.LocalBindAddress != "" {
 		address = upstream.LocalBindAddress
 	}
-	return makeListener(name, address, upstream.LocalBindPort, trafficDirection)
+	return makePortListener(name, address, upstream.LocalBindPort, trafficDirection)
 }
 
 // makeListener returns a listener with name and bind details set. Filters must
@@ -559,7 +559,7 @@ func makeListenerExt(name string, upstream *structs.Upstream, trafficDirection e
 // changes them, we actually create a whole new listener on the new address and
 // port. Envoy should take care of closing the old one once it sees it's no
 // longer in the config.
-func makeListener(name, addr string, port int, trafficDirection envoy_core_v3.TrafficDirection) *envoy_listener_v3.Listener {
+func makePortListener(name, addr string, port int, trafficDirection envoy_core_v3.TrafficDirection) *envoy_listener_v3.Listener {
 	return &envoy_listener_v3.Listener{
 		Name:             fmt.Sprintf("%s:%s:%d", name, addr, port),
 		Address:          makeAddress(addr, port),
@@ -567,6 +567,7 @@ func makeListener(name, addr string, port int, trafficDirection envoy_core_v3.Tr
 	}
 }
 
+// TODO markan INVESTIGATE sanitizing path name (path.filepath) clean/validate. (Maybe check if sanitizer alters things, then fail)
 func makePipeListener(name, path string, mode uint32, trafficDirection envoy_core_v3.TrafficDirection) *envoy_listener_v3.Listener {
 	return &envoy_listener_v3.Listener{
 		Name:             fmt.Sprintf("%s:%s", name, path),
@@ -776,7 +777,7 @@ func (s *Server) makeInboundListener(cInfo connectionInfo, cfgSnap *proxycfg.Con
 		port = cfg.BindPort
 	}
 
-	l = makeListener(name, addr, port, envoy_core_v3.TrafficDirection_INBOUND)
+	l = makePortListener(name, addr, port, envoy_core_v3.TrafficDirection_INBOUND)
 
 	filterOpts := listenerFilterOpts{
 		protocol:         cfg.Protocol,
@@ -855,7 +856,7 @@ func (s *Server) makeExposedCheckListener(cfgSnap *proxycfg.ConfigSnapshot, clus
 	strippedPath := r.ReplaceAllString(path.Path, "")
 	listenerName := fmt.Sprintf("exposed_path_%s", strippedPath)
 
-	l := makeListener(listenerName, addr, path.ListenerPort, envoy_core_v3.TrafficDirection_INBOUND)
+	l := makePortListener(listenerName, addr, path.ListenerPort, envoy_core_v3.TrafficDirection_INBOUND)
 
 	filterName := fmt.Sprintf("exposed_path_filter_%s_%d", strippedPath, path.ListenerPort)
 
@@ -921,7 +922,7 @@ func (s *Server) makeTerminatingGatewayListener(
 	name, addr string,
 	port int,
 ) (*envoy_listener_v3.Listener, error) {
-	l := makeListener(name, addr, port, envoy_core_v3.TrafficDirection_INBOUND)
+	l := makePortListener(name, addr, port, envoy_core_v3.TrafficDirection_INBOUND)
 
 	tlsInspector, err := makeTLSInspectorListenerFilter()
 	if err != nil {
@@ -1114,7 +1115,7 @@ func (s *Server) makeMeshGatewayListener(name, addr string, port int, cfgSnap *p
 		},
 	}
 
-	l := makeListener(name, addr, port, envoy_core_v3.TrafficDirection_UNSPECIFIED)
+	l := makePortListener(name, addr, port, envoy_core_v3.TrafficDirection_UNSPECIFIED)
 	l.ListenerFilters = []*envoy_listener_v3.ListenerFilter{tlsInspector}
 
 	// TODO (mesh-gateway) - Do we need to create clusters for all the old trust domains as well?
@@ -1305,7 +1306,7 @@ func (s *Server) makeUpstreamListenerForDiscoveryChain(
 		address = "127.0.0.1"
 	}
 	upstreamID := u.Identifier()
-	l := makeListener(upstreamID, address, u.LocalBindPort, envoy_core_v3.TrafficDirection_OUTBOUND)
+	l := makePortListener(upstreamID, address, u.LocalBindPort, envoy_core_v3.TrafficDirection_OUTBOUND)
 
 	cfg := getAndModifyUpstreamConfigForListener(s.Logger, upstreamID, u, chain)
 	if cfg.EnvoyListenerJSON != "" {
