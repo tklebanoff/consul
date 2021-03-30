@@ -60,7 +60,7 @@ func (s *Server) listenersFromSnapshot(cInfo connectionInfo, cfgSnap *proxycfg.C
 // listenersFromSnapshotConnectProxy returns the "listeners" for a connect proxy service
 func (s *Server) listenersFromSnapshotConnectProxy(cInfo connectionInfo, cfgSnap *proxycfg.ConfigSnapshot) ([]proto.Message, error) {
 	resources := make([]proto.Message, 1)
-
+	// TODO markan: re-review this code; not sure about whether all paths generate a listener.
 	var err error
 
 	// Configure inbound listener.
@@ -75,7 +75,8 @@ func (s *Server) listenersFromSnapshotConnectProxy(cInfo connectionInfo, cfgSnap
 	var outboundListener *envoy_listener_v3.Listener
 
 	if cfgSnap.Proxy.TransparentProxy {
-		outboundListener = makePortListener(OutboundListenerName, "127.0.0.1", TProxyOutboundPort, envoy_core_v3.TrafficDirection_OUTBOUND)
+		// TODO markan Investigate UDS for TransparentProxy, probably should not be part of first pass.
+		outboundListener = makePortListenerWithDefault(OutboundListenerName, "", TProxyOutboundPort, envoy_core_v3.TrafficDirection_OUTBOUND)
 		outboundListener.FilterChains = make([]*envoy_listener_v3.FilterChain, 0)
 		outboundListener.ListenerFilters = []*envoy_listener_v3.ListenerFilter{
 			{
@@ -101,7 +102,7 @@ func (s *Server) listenersFromSnapshotConnectProxy(cInfo connectionInfo, cfgSnap
 			continue
 		}
 
-		// Generate the upstream listeners for when they are explicitly set with a local bind port
+		// Generate the upstream listeners for when they are explicitly set with a local bind port or socket path
 		if outboundListener == nil || (upstreamCfg != nil && upstreamCfg.HasLocalPortOrSocket()) {
 
 			filterChain, err := s.makeUpstreamFilterChainForDiscoveryChain(
@@ -467,6 +468,8 @@ func (s *Server) listenersFromSnapshotGateway(cInfo connectionInfo, cfgSnap *pro
 func (s *Server) makeIngressGatewayListeners(address string, cfgSnap *proxycfg.ConfigSnapshot) ([]proto.Message, error) {
 	var resources []proto.Message
 
+	// TODO markan maybe check/fail if upstreams use UDS
+
 	for listenerKey, upstreams := range cfgSnap.IngressGateway.Upstreams {
 		var tlsContext *envoy_tls_v3.DownstreamTlsContext
 		if cfgSnap.IngressGateway.TLSEnabled {
@@ -541,11 +544,7 @@ func makeListenerExt(name string, upstream *structs.Upstream, trafficDirection e
 		return makePipeListener(name, upstream.LocalBindSocketPath, upstream.LocalBindSocketMode, trafficDirection)
 	}
 
-	address := "127.0.0.1"
-	if upstream.LocalBindAddress != "" {
-		address = upstream.LocalBindAddress
-	}
-	return makePortListener(name, address, upstream.LocalBindPort, trafficDirection)
+	return makePortListenerWithDefault(name, upstream.LocalBindAddress, upstream.LocalBindPort, trafficDirection)
 }
 
 // makeListener returns a listener with name and bind details set. Filters must
@@ -565,6 +564,14 @@ func makePortListener(name, addr string, port int, trafficDirection envoy_core_v
 		Address:          makeAddress(addr, port),
 		TrafficDirection: trafficDirection,
 	}
+}
+
+func makePortListenerWithDefault(name, addr string, port int, trafficDirection envoy_core_v3.TrafficDirection) *envoy_listener_v3.Listener {
+
+	if addr == "" {
+		addr = "127.0.0.1"
+	}
+	return makePortListener(name, addr, port, trafficDirection)
 }
 
 // TODO markan INVESTIGATE sanitizing path name (path.filepath) clean/validate. (Maybe check if sanitizer alters things, then fail)
@@ -1115,6 +1122,7 @@ func (s *Server) makeMeshGatewayListener(name, addr string, port int, cfgSnap *p
 		},
 	}
 
+	// NOTE: (markan) This path will never need to support unix domain sockets
 	l := makePortListener(name, addr, port, envoy_core_v3.TrafficDirection_UNSPECIFIED)
 	l.ListenerFilters = []*envoy_listener_v3.ListenerFilter{tlsInspector}
 
@@ -1302,11 +1310,15 @@ func (s *Server) makeUpstreamListenerForDiscoveryChain(
 	cfgSnap *proxycfg.ConfigSnapshot,
 	tlsContext *envoy_tls_v3.DownstreamTlsContext,
 ) (proto.Message, error) {
-	if address == "" {
-		address = "127.0.0.1"
+
+	// TODO markan remove this assert and make it part of the error flow
+	// Best understanding is this only makes sense for port listeners....
+	if u.LocalBindSocketPath != "" {
+		panic(fmt.Sprintf("makeUpstreamListenerForDiscoveryChain not supported for unix domain sockets %s %+v", address, u))
 	}
+
 	upstreamID := u.Identifier()
-	l := makePortListener(upstreamID, address, u.LocalBindPort, envoy_core_v3.TrafficDirection_OUTBOUND)
+	l := makePortListenerWithDefault(upstreamID, address, u.LocalBindPort, envoy_core_v3.TrafficDirection_OUTBOUND)
 
 	cfg := getAndModifyUpstreamConfigForListener(s.Logger, upstreamID, u, chain)
 	if cfg.EnvoyListenerJSON != "" {
