@@ -3,11 +3,11 @@
   "resources": [
     {
       "@type": "type.googleapis.com/envoy.api.v2.Listener",
-      "name": "db:127.0.0.1:9191",
+      "name": "db:/tmp/service-mesh/client-1/grpc-employee-server",
       "address": {
-        "socketAddress": {
-          "address": "127.0.0.1",
-          "portValue": 9191
+        "pipe": {
+          "path": "/tmp/service-mesh/client-1/grpc-employee-server",
+          "mode": 416
         }
       },
       "filterChains": [
