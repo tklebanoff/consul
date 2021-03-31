@@ -2,6 +2,12 @@ package xds
 
 import (
 	"bytes"
+	"path/filepath"
+	"sort"
+	"testing"
+	"text/template"
+	"time"
+
 	envoy_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/hashicorp/consul/agent/connect"
 	"github.com/hashicorp/consul/agent/consul/discoverychain"
@@ -12,11 +18,6 @@ import (
 	"github.com/hashicorp/consul/types"
 	testinf "github.com/mitchellh/go-testing-interface"
 	"github.com/stretchr/testify/require"
-	"path/filepath"
-	"sort"
-	"testing"
-	"text/template"
-	"time"
 )
 
 func TestListenersFromSnapshot(t *testing.T) {
@@ -59,6 +60,17 @@ func TestListenersFromSnapshot(t *testing.T) {
 			setup: func(snap *proxycfg.ConfigSnapshot) {
 				snap.Proxy.Config["bind_address"] = "127.0.0.2"
 				snap.Proxy.Config["bind_port"] = 8888
+			},
+		},
+		{ // TODO MARKAN
+			name:   "listener-unix-domain-socket",
+			create: proxycfg.TestConfigSnapshot,
+			setup: func(snap *proxycfg.ConfigSnapshot) {
+				upstream := snap.Proxy.Upstreams[0]
+				upstream.LocalBindAddress = ""
+				upstream.LocalBindPort = 0
+				upstream.LocalBindSocketPath = "/tmp/service-mesh/client-1/grpc-employee-server"
+				upstream.LocalBindSocketMode = 0640
 			},
 		},
 		{
@@ -333,6 +345,11 @@ func TestListenersFromSnapshot(t *testing.T) {
 			create: proxycfg.TestConfigSnapshotIngressGateway,
 			setup:  nil,
 		},
+		//	{
+		//		name:   "ingress-gateway-unix-domain-socket",
+		//		create: proxycfg.TestConfigSnapshotIngressGatewayWithUDS,
+		//		setup:  nil,
+		//	},
 		{
 			name:   "ingress-gateway-bind-addrs",
 			create: proxycfg.TestConfigSnapshotIngressGateway,
