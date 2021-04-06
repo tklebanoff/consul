@@ -13,7 +13,7 @@ export default class ShowRoute extends SingleRoute {
           item: this.repo.findBySlug({
             id: params.id,
             dc: this.modelFor('dc').dc.Name,
-            ns: this.modelFor('nspace').nspace.substr(1),
+            ns: this.optionalParams().nspace || '',
           }),
         },
       });
