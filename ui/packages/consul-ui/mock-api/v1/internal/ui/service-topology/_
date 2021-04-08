@@ -52,10 +52,26 @@ ${
     }
     fake.seed(index);
 
+
+    // Randomly make permissive intentions
+    let defaultAllow = false;
+    let wildwardIntention = false;
+    const num = fake.random.number({min: 1, max: 10});
+    if (num > 7) {
+      defaultAllow = true;
+      wildwardIntention = false;
+    } else if (num < 3) {
+      defaultAllow = false;
+      wildwardIntention = true;
+    }
+
     return `
 {
   "Protocol": "${serviceProto}",
   "FilteredByACLs": ${fake.random.boolean()},
+  "TransparentProxy": ${fake.random.boolean()},
+  "DefaultAllow": ${defaultAllow},
+  "WildcardIntention": ${wildwardIntention},
   "Upstreams": [
     ${
       upstreams.map((item, i) => {
@@ -70,11 +86,14 @@ ${
       "ChecksPassing":${fake.random.number({min: 1, max: env('CONSUL_CHECK_COUNT', fake.random.number(10))})},
       "ChecksWarning":${fake.random.number({min: 0, max: env('CONSUL_CHECK_COUNT', fake.random.number(10))})},
       "ChecksCritical":${fake.random.number({min: 0, max: env('CONSUL_CHECK_COUNT', fake.random.number(10))})},
+      "Source": "${fake.helpers.randomize(['proxy-registration', 'default-allow', 'wildcard-intention'])}",
+      "TransparentProxy": ${fake.random.boolean()},
       "Intention": {
         "Allowed": ${allowed},
         "HasPermissions": ${hasPerms},
         "ExternalSource": "${fake.helpers.randomize(['nomad', 'kubernetes', ''])}",
-        "HasExact": ${fake.random.boolean()}
+        "HasExact": ${fake.random.boolean()},
+        "DefaultAllow": ${fake.random.boolean()}
       }
     }
     `})}
@@ -93,11 +112,14 @@ ${
       "ChecksPassing":${fake.random.number({min: 1, max: env('CONSUL_CHECK_COUNT', fake.random.number(10))})},
       "ChecksWarning":${fake.random.number({min: 0, max: env('CONSUL_CHECK_COUNT', fake.random.number(10))})},
       "ChecksCritical":${fake.random.number({min: 0, max: env('CONSUL_CHECK_COUNT', fake.random.number(10))})},
+      "Source": "${fake.helpers.randomize(['proxy-registration', 'specific-intention', 'default-allow', 'wildcard-intention'])}",
+      "TransparentProxy": ${fake.random.boolean()},
       "Intention": {
         "Allowed": ${allowed},
         "HasPermissions": ${hasPerms},
         "ExternalSource": "${fake.helpers.randomize(['nomad', 'kubernetes', ''])}",
-        "HasExact": ${fake.random.boolean()}
+        "HasExact": ${fake.random.boolean()},
+        "DefaultAllow": ${fake.random.boolean()}
       }
     }
     `})}
