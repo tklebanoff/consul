@@ -7,11 +7,12 @@ import (
 	"github.com/armon/go-metrics/prometheus"
 
 	metrics "github.com/armon/go-metrics"
+	memdb "github.com/hashicorp/go-memdb"
+	"github.com/mitchellh/copystructure"
+
 	"github.com/hashicorp/consul/acl"
 	"github.com/hashicorp/consul/agent/consul/state"
 	"github.com/hashicorp/consul/agent/structs"
-	memdb "github.com/hashicorp/go-memdb"
-	"github.com/mitchellh/copystructure"
 )
 
 var ConfigSummaries = []prometheus.SummaryDefinition{
@@ -89,9 +90,6 @@ func (c *ConfigEntry) Apply(args *structs.ConfigEntryRequest, reply *bool) error
 	resp, err := c.srv.raftApply(structs.ConfigEntryRequestType, args)
 	if err != nil {
 		return err
-	}
-	if respErr, ok := resp.(error); ok {
-		return respErr
 	}
 	if respBool, ok := resp.(bool); ok {
 		*reply = respBool
@@ -294,14 +292,8 @@ func (c *ConfigEntry) Delete(args *structs.ConfigEntryRequest, reply *struct{}) 
 	}
 
 	args.Op = structs.ConfigEntryDelete
-	resp, err := c.srv.raftApply(structs.ConfigEntryRequestType, args)
-	if err != nil {
-		return err
-	}
-	if respErr, ok := resp.(error); ok {
-		return respErr
-	}
-	return nil
+	_, err = c.srv.raftApply(structs.ConfigEntryRequestType, args)
+	return err
 }
 
 // ResolveServiceConfig
